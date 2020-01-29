@@ -8,6 +8,7 @@
  * about its quality, reliability, or any other characteristic.
  */
 
+#include <chrono>
 #include <fstream>
 #include <iostream>
 #include <cstring>
@@ -142,7 +143,15 @@ match(
     scoresStream << "enrollTempl verifTempl simScore returnCode" << endl;
 
     /* Process each probe */
+    int n_repetitions = 1;
+    const char* env_reps = std::getenv("N_REPS");
+    if (env_reps) {
+        n_repetitions = atoi(env_reps);
+    }
+    using clock_type = std::chrono::high_resolution_clock;
+    std::vector<std::chrono::duration<double, std::nano>> match_times_ns;
     string enrollID, verifID;
+    ReturnStatus ret;
     while (inputStream >> enrollID >> verifID) {
         vector<uint8_t> enrollTempl, verifTempl;
         double similarity = -1.0;
@@ -159,7 +168,12 @@ match(
         }
 
         /* Call match */
-        auto ret = implPtr->matchTemplates(verifTempl, enrollTempl, similarity);
+        auto t0 = clock_type::now();
+        for (int i=0; i<n_repetitions; ++i) {
+            ret = implPtr->matchTemplates(verifTempl, enrollTempl, similarity);
+        }
+        auto t1 = clock_type::now();
+        match_times_ns.push_back(t1 - t0);
 
         /* Write to scores log file */
         scoresStream << enrollID << " "
@@ -169,6 +183,11 @@ match(
                 << endl;
     }
     inputStream.close();
+
+    if (!match_times_ns.empty()) {
+        cout << "Median match time (n_matches=" << match_times_ns.size() << ", n_reps=" << n_repetitions << "): "
+             << match_times_ns[match_times_ns.size() / 2].count() / n_repetitions << " ns" << endl;
+    }
 
     /* Remove the input file */
     if( remove(inputFile.c_str()) != 0 )

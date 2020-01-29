@@ -62,7 +62,7 @@ NullImplFRVT11::matchTemplates(
     }
     */
 
-    similarity = rand() % 1000 + 1;
+    similarity = 0.5;
     return ReturnStatus(ReturnCode::Success);
 }
 
